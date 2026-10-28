@@ -12,6 +12,7 @@ from backend.models import (
     ToolRequest,
     TrustLevel,
 )
+from backend.policy_engine.passport import PassportRegistry, validate_passport
 
 _RISK_ORDER = {
     RiskLevel.LOW: 0,
@@ -46,10 +47,29 @@ class PolicyRepository:
 class PolicyEngine:
     """Deterministic enforcement. LLMs may add evidence but cannot bypass it."""
 
-    def __init__(self, repository: PolicyRepository) -> None:
+    def __init__(
+        self,
+        repository: PolicyRepository,
+        passports: Optional[PassportRegistry] = None,
+    ) -> None:
         self.repository = repository
+        self.passports = passports or PassportRegistry()
 
     def evaluate(self, request: ToolRequest) -> PolicyDecision:
+        passport_error = validate_passport(request, self.passports)
+        if passport_error:
+            return self._decision(
+                request,
+                Decision.BLOCK,
+                None,
+                self._evidence(
+                    "TASK_PASSPORT_VIOLATION",
+                    passport_error,
+                    RiskLevel.CRITICAL,
+                    "passport_id",
+                    request.passport_id,
+                ),
+            )
         policy = self.repository.find(request.agent_id, request.tool_name)
         if policy is None:
             return self._decision(
@@ -156,10 +176,12 @@ class PolicyEngine:
         allowed_prefixes = policy.get("allowed_path_prefixes", [])
         path_value = arguments.get("path")
         if path_value and allowed_prefixes:
-            normalized = str(Path(path_value))
-            if ".." in Path(path_value).parts or not any(
-                normalized.startswith(prefix) for prefix in allowed_prefixes
-            ):
+            candidate = Path(path_value)
+            roots = [Path(prefix) for prefix in allowed_prefixes]
+            in_scope = candidate.is_absolute() and any(
+                candidate == root or root in candidate.parents for root in roots
+            )
+            if ".." in candidate.parts or not in_scope:
                 evidence.append(
                     self._evidence(
                         "PATH_OUT_OF_SCOPE",

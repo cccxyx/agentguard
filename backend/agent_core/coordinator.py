@@ -9,6 +9,7 @@ from backend.agent_core.contracts import (
 )
 from backend.mcp_gateway import MCPGateway
 from backend.models import ExecutionResult, TaskRecord, TaskStatus
+from backend.policy_engine import PassportIssuer
 
 
 class TaskCoordinator:
@@ -17,6 +18,7 @@ class TaskCoordinator:
     def __init__(self, gateway: MCPGateway, planner: PlanningAdapter) -> None:
         self.gateway = gateway
         self.planner = planner
+        self.passport_issuer = PassportIssuer(gateway.engine.passports)
         self.tasks: Dict[str, TaskRecord] = {}
         self._plans: Dict[str, OrchestrationPlan] = {}
 
@@ -27,8 +29,18 @@ class TaskCoordinator:
             total_steps=0,
         )
         plan = self.planner.plan_activity(placeholder.task_id, spec)
+        passport, bound_steps = self.passport_issuer.issue(
+            placeholder.task_id, plan.steps
+        )
+        plan = OrchestrationPlan(
+            task_id=plan.task_id,
+            steps=bound_steps,
+            evidence=plan.evidence,
+            provider=plan.provider,
+        )
         placeholder.total_steps = len(plan.steps)
         placeholder.plan_summary = plan.summary()
+        placeholder.plan_summary["task_passport"] = passport.to_dict()
         self.tasks[placeholder.task_id] = placeholder
         self._plans[placeholder.task_id] = plan
         if self.gateway.recovery:

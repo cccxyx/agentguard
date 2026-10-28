@@ -19,12 +19,20 @@
 - `POLICY_DECISION`
 - `APPROVAL_REQUIRED`
 - `APPROVAL_RESOLVED`
+- `APPROVAL_EXPIRED`
+- `APPROVAL_INVALIDATED`
 - `TOOL_EXECUTED`
 - `TOOL_FAILED`
 - `ROLLBACK_COMPLETED`
 - `ROLLBACK_SKIPPED`
 - `CIRCUIT_OPENED`
 - `CIRCUIT_REJECTED`
+
+`APPROVAL_REQUIRED` 必须包含请求摘要和失效时间。用户批准只对摘要完全一致的工具请求生效，参数变化后必须重新审批。
+
+## Task Passport
+
+完整任务由后端签发限时任务护照。护照中的每项授权同时绑定 `task_id`、Agent、工具、动作、参数及来源信任级别。任务执行阶段出现的新内容不能修改护照；超出护照的请求统一产生 `TASK_PASSPORT_VIOLATION` 决策证据。
 
 前端与评测模块应以该事件结构开发 Mock 数据，避免后续联调时重新定义字段。
 

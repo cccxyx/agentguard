@@ -1,5 +1,6 @@
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,6 +86,76 @@ class PolicyGatewayTests(unittest.TestCase):
         result = self.gateway.submit(request)
         self.assertEqual(result.status, "BLOCKED")
         self.assertIn("/workspace/activities/roster.csv", self.workspace.files)
+
+    def test_sibling_path_cannot_bypass_allowed_directory(self):
+        request = ToolRequest(
+            task_id="task-path-boundary",
+            agent_id="activity-assistant",
+            tool_name="shared_file",
+            action="read",
+            arguments={"path": "/workspace/activities_evil/secret.txt"},
+            source_trust=TrustLevel.USER_CONFIRMED,
+        )
+        result = self.gateway.submit(request)
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertEqual(result.decision, Decision.BLOCK)
+
+    def test_expired_approval_cannot_execute(self):
+        current_time = [datetime(2026, 10, 28, tzinfo=timezone.utc)]
+        repository = PolicyRepository.from_json(ROOT / "config" / "policies.json")
+        registry = ToolRegistry()
+        workspace = MockWorkspace()
+        register_workspace_tools(registry, workspace)
+        gateway = MCPGateway(
+            PolicyEngine(repository),
+            registry,
+            approval_ttl_seconds=10,
+            now_fn=lambda: current_time[0],
+        )
+        request = ToolRequest(
+            task_id="task-expired-approval",
+            agent_id="activity-assistant",
+            tool_name="shared_file",
+            action="update",
+            arguments={
+                "path": "/workspace/activities/plan.md",
+                "content": "不得写入",
+            },
+            source_trust=TrustLevel.USER_CONFIRMED,
+        )
+        pending = gateway.submit(request)
+        self.assertEqual(pending.status, "PENDING_CONFIRMATION")
+        current_time[0] += timedelta(seconds=11)
+
+        result = gateway.resolve(request.request_id, approved=True)
+        self.assertEqual(result.status, "APPROVAL_EXPIRED")
+        self.assertNotEqual(
+            workspace.files["/workspace/activities/plan.md"], "不得写入"
+        )
+
+    def test_changed_parameters_invalidate_existing_approval(self):
+        request = ToolRequest(
+            task_id="task-approval-binding",
+            agent_id="activity-assistant",
+            tool_name="shared_file",
+            action="update",
+            arguments={
+                "path": "/workspace/activities/plan.md",
+                "content": "用户预览的内容",
+            },
+            source_trust=TrustLevel.USER_CONFIRMED,
+        )
+        pending = self.gateway.submit(request)
+        self.assertEqual(pending.status, "PENDING_CONFIRMATION")
+
+        request.arguments["content"] = "审批后被替换的内容"
+        result = self.gateway.resolve(request.request_id, approved=True)
+
+        self.assertEqual(result.status, "APPROVAL_INVALIDATED")
+        self.assertNotEqual(
+            self.workspace.files["/workspace/activities/plan.md"],
+            "审批后被替换的内容",
+        )
 
 
 if __name__ == "__main__":

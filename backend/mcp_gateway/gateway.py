@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from backend.models import AuditEvent, Decision, ExecutionResult, ToolRequest
-from backend.policy_engine import PolicyEngine
+from backend.policy_engine import PolicyEngine, approval_fingerprint
 from backend.recovery import CircuitOpenError, RecoveryController
 
 ToolHandler = Callable[[str, Dict[str, Any]], Dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class PendingApproval:
+    request: ToolRequest
+    request_fingerprint: str
+    expires_at: datetime
 
 
 class ToolRegistry:
@@ -33,11 +42,17 @@ class MCPGateway:
         engine: PolicyEngine,
         registry: ToolRegistry,
         recovery: Optional[RecoveryController] = None,
+        approval_ttl_seconds: int = 600,
+        now_fn: Optional[Callable[[], datetime]] = None,
     ) -> None:
+        if approval_ttl_seconds < 1:
+            raise ValueError("approval_ttl_seconds must be positive")
         self.engine = engine
         self.registry = registry
         self.recovery = recovery
-        self.pending: Dict[str, ToolRequest] = {}
+        self.approval_ttl_seconds = approval_ttl_seconds
+        self.now_fn = now_fn or (lambda: datetime.now(timezone.utc))
+        self.pending: Dict[str, PendingApproval] = {}
         self.audit_events: List[AuditEvent] = []
 
     def submit(self, request: ToolRequest) -> ExecutionResult:
@@ -53,8 +68,27 @@ class MCPGateway:
             )
 
         if decision.decision == Decision.CONFIRM:
-            self.pending[request.request_id] = request
-            self._record(request, "APPROVAL_REQUIRED", {"status": "PENDING"})
+            fingerprint = approval_fingerprint(request)
+            expires_at = self.now_fn() + timedelta(seconds=self.approval_ttl_seconds)
+            self.pending[request.request_id] = PendingApproval(
+                request=request,
+                request_fingerprint=fingerprint,
+                expires_at=expires_at,
+            )
+            self._record(
+                request,
+                "APPROVAL_REQUIRED",
+                {
+                    "status": "PENDING",
+                    "request_fingerprint": fingerprint,
+                    "expires_at": expires_at.isoformat(),
+                    "preview": {
+                        "tool_name": request.tool_name,
+                        "action": request.action,
+                        "argument_keys": sorted(request.arguments),
+                    },
+                },
+            )
             return ExecutionResult(
                 request.request_id,
                 "PENDING_CONFIRMATION",
@@ -64,11 +98,49 @@ class MCPGateway:
         return self._execute(request, decision.decision)
 
     def resolve(self, request_id: str, approved: bool) -> ExecutionResult:
-        request = self.pending.pop(request_id, None)
-        if request is None:
+        pending = self.pending.pop(request_id, None)
+        if pending is None:
             raise KeyError("pending request not found: {}".format(request_id))
+        request = pending.request
 
-        self._record(request, "APPROVAL_RESOLVED", {"approved": approved})
+        if self.now_fn() >= pending.expires_at:
+            self._record(
+                request,
+                "APPROVAL_EXPIRED",
+                {"expires_at": pending.expires_at.isoformat()},
+            )
+            return ExecutionResult(
+                request.request_id,
+                "APPROVAL_EXPIRED",
+                Decision.CONFIRM,
+                error="审批已过期，请重新发起任务。",
+            )
+
+        current_fingerprint = approval_fingerprint(request)
+        if current_fingerprint != pending.request_fingerprint:
+            self._record(
+                request,
+                "APPROVAL_INVALIDATED",
+                {
+                    "expected": pending.request_fingerprint,
+                    "observed": current_fingerprint,
+                },
+            )
+            return ExecutionResult(
+                request.request_id,
+                "APPROVAL_INVALIDATED",
+                Decision.CONFIRM,
+                error="请求内容发生变化，原审批已失效。",
+            )
+
+        self._record(
+            request,
+            "APPROVAL_RESOLVED",
+            {
+                "approved": approved,
+                "request_fingerprint": pending.request_fingerprint,
+            },
+        )
         if not approved:
             return ExecutionResult(
                 request.request_id,

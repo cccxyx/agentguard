@@ -11,7 +11,7 @@ from backend.agent_core import (
     TaskCoordinator,
 )
 from backend.bootstrap import build_runtime
-from backend.models import TaskStatus, TrustLevel
+from backend.models import TaskStatus, ToolRequest, TrustLevel
 
 
 class TaskCoordinatorTests(unittest.TestCase):
@@ -75,6 +75,32 @@ class TaskCoordinatorTests(unittest.TestCase):
                 "CONTENT_ISOLATION_AGENT",
                 "BEHAVIOR_GUARD_AGENT",
             },
+        )
+
+    def test_task_passport_blocks_unplanned_parameter_expansion(self):
+        task = self.coordinator.create_activity(self._spec())
+        passport = task.plan_summary["task_passport"]
+        expanded_request = ToolRequest(
+            task_id=task.task_id,
+            agent_id="activity-assistant",
+            tool_name="send_notice",
+            action="send",
+            arguments={
+                "recipient": "participants@example.org",
+                "recipient_count": 20,
+                "content": "活动通知",
+                "fields": ["phone"],
+            },
+            source_trust=TrustLevel.USER_CONFIRMED,
+            passport_id=passport["passport_id"],
+        )
+
+        result = self.gateway.submit(expanded_request)
+        self.assertEqual(result.status, "BLOCKED")
+        decision_event = self.gateway.audit_events[-1]
+        self.assertEqual(
+            decision_event.payload["reasons"][0]["code"],
+            "TASK_PASSPORT_VIOLATION",
         )
 
 

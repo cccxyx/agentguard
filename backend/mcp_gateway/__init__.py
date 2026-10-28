@@ -1,3 +1,3 @@
-from .gateway import MCPGateway, ToolRegistry
+from .gateway import MCPGateway, PendingApproval, ToolRegistry
 
-__all__ = ["MCPGateway", "ToolRegistry"]
+__all__ = ["MCPGateway", "PendingApproval", "ToolRegistry"]

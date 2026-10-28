@@ -51,6 +51,7 @@ class ToolRequest:
     action: str
     arguments: Dict[str, Any]
     source_trust: TrustLevel
+    passport_id: Optional[str] = None
     request_id: str = field(default_factory=lambda: str(uuid4()))
     created_at: str = field(default_factory=utc_now)
 
@@ -144,3 +145,24 @@ class TaskRecord:
         value = asdict(self)
         value["status"] = self.status.value
         return value
+
+
+@dataclass(frozen=True)
+class PassportGrant:
+    tool_name: str
+    action: str
+    authorized_arguments: Dict[str, Any]
+    request_fingerprint: str
+
+
+@dataclass(frozen=True)
+class TaskPassport:
+    task_id: str
+    grants: List[PassportGrant]
+    expires_at: str
+    fingerprint: str
+    passport_id: str = field(default_factory=lambda: str(uuid4()))
+    issued_at: str = field(default_factory=utc_now)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
