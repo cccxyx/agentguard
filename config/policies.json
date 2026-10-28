@@ -1,0 +1,37 @@
+{
+  "version": "0.1.0",
+  "policies": [
+    {
+      "id": "activity-calendar-v1",
+      "agent": "activity-assistant",
+      "tool": "calendar",
+      "allowed_actions": ["create"],
+      "denied_actions": [],
+      "confirmation_actions": [],
+      "external_source_blocked_actions": ["create"]
+    },
+    {
+      "id": "activity-notice-v1",
+      "agent": "activity-assistant",
+      "tool": "send_notice",
+      "allowed_actions": ["send"],
+      "denied_actions": [],
+      "confirmation_actions": [],
+      "external_source_blocked_actions": ["send"],
+      "allowed_recipient_domains": ["example.org"],
+      "confirmation_recipient_count": 30,
+      "denied_fields": ["phone", "id_number", "home_address"]
+    },
+    {
+      "id": "activity-files-v1",
+      "agent": "activity-assistant",
+      "tool": "shared_file",
+      "allowed_actions": ["read", "update"],
+      "denied_actions": ["delete"],
+      "confirmation_actions": ["update"],
+      "external_source_blocked_actions": ["update", "delete"],
+      "allowed_path_prefixes": ["/workspace/activities/"]
+    }
+  ]
+}
+
