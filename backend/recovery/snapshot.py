@@ -89,6 +89,18 @@ class RecoveryController:
         self.breaker.before_call(request.tool_name)
         self.snapshots.create(request.request_id)
 
+    def begin_task(self, task_id: str) -> None:
+        self.snapshots.create(self._task_snapshot_key(task_id))
+
+    def restore_task(self, task_id: str) -> bool:
+        key = self._task_snapshot_key(task_id)
+        restored = self.snapshots.restore(key)
+        self.snapshots.discard(key)
+        return restored
+
+    def complete_task(self, task_id: str) -> None:
+        self.snapshots.discard(self._task_snapshot_key(task_id))
+
     def on_success(self, request: ToolRequest) -> None:
         self.breaker.record_success(request.tool_name)
         self.snapshots.discard(request.request_id)
@@ -110,3 +122,7 @@ class RecoveryController:
 
     def get_incident(self, incident_id: str) -> Optional[Incident]:
         return self.incidents.get(incident_id)
+
+    @staticmethod
+    def _task_snapshot_key(task_id: str) -> str:
+        return "task:{}".format(task_id)

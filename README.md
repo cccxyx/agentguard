@@ -19,6 +19,8 @@
 - FastAPI 运行时接口；
 - 内存模拟工具；
 - 工具失败回滚与连续失败熔断；
+- 可暂停、审批、取消和恢复的活动事务状态机；
+- 业务、内容隔离、行为守卫三 Agent 的统一编排协议；
 - 正常、确认、阻断三条自动化测试；
 - 可直接运行的命令行演示。
 
@@ -30,6 +32,7 @@ AgentArts、多 Agent 工作流、FastAPI 服务和前端控制台将在后续�
 
 ```bash
 python3 scripts/run_demo.py
+python3 scripts/run_task_demo.py
 python3 -m unittest discover -s tests -v
 ```
 
@@ -43,6 +46,8 @@ uvicorn backend.api.app:app --reload
 ```
 
 Swagger 页面：`http://127.0.0.1:8000/docs`
+
+完整活动事务从 `POST /api/tasks` 开始。当前使用离线的 AgentArts 兼容适配器；真实平台接入不会改变前端、策略网关或评测模块的接口。
 
 ## 目录
 

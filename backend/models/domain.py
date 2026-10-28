@@ -40,6 +40,7 @@ class TaskStatus(str, Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     RESTORED = "RESTORED"
+    CANCELLED = "CANCELLED"
 
 
 @dataclass(frozen=True)
@@ -121,3 +122,25 @@ class Incident:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class TaskRecord:
+    intent: str
+    status: TaskStatus
+    total_steps: int
+    task_id: str = field(default_factory=lambda: str(uuid4()))
+    current_step: int = 0
+    pending_request_id: Optional[str] = None
+    plan_summary: Dict[str, Any] = field(default_factory=dict)
+    results: List[Dict[str, Any]] = field(default_factory=list)
+    created_at: str = field(default_factory=utc_now)
+    updated_at: str = field(default_factory=utc_now)
+
+    def touch(self) -> None:
+        self.updated_at = utc_now()
+
+    def to_dict(self) -> Dict[str, Any]:
+        value = asdict(self)
+        value["status"] = self.status.value
+        return value
