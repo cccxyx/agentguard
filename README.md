@@ -16,7 +16,9 @@
 - JSON 策略加载；
 - 确定性三态策略引擎；
 - MCP 安全网关与人工审批接口；
+- FastAPI 运行时接口；
 - 内存模拟工具；
+- 工具失败回滚与连续失败熔断；
 - 正常、确认、阻断三条自动化测试；
 - 可直接运行的命令行演示。
 
@@ -30,6 +32,17 @@ AgentArts、多 Agent 工作流、FastAPI 服务和前端控制台将在后续�
 python3 scripts/run_demo.py
 python3 -m unittest discover -s tests -v
 ```
+
+安装 API 依赖后可以启动服务：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[api,dev]'
+uvicorn backend.api.app:app --reload
+```
+
+Swagger 页面：`http://127.0.0.1:8000/docs`
 
 ## 目录
 
@@ -60,4 +73,3 @@ tests/                   # 核心自动化测试
 ## 安全边界
 
 当前版本只操作脱敏模拟数据，不连接真实学校系统、邮箱、支付账户或个人通讯录。任何外部系统接入前，必须补充授权、凭据存储和测试环境说明。
-

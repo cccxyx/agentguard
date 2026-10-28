@@ -32,6 +32,16 @@ class TrustLevel(str, Enum):
     MODEL_GENERATED = "MODEL_GENERATED"
 
 
+class TaskStatus(str, Enum):
+    CREATED = "CREATED"
+    RUNNING = "RUNNING"
+    WAITING_CONFIRMATION = "WAITING_CONFIRMATION"
+    BLOCKED = "BLOCKED"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    RESTORED = "RESTORED"
+
+
 @dataclass(frozen=True)
 class ToolRequest:
     task_id: str
@@ -97,3 +107,17 @@ class AuditEvent:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+
+@dataclass(frozen=True)
+class Incident:
+    task_id: str
+    request_id: str
+    tool_name: str
+    error: str
+    restored: bool
+    circuit_opened: bool
+    incident_id: str = field(default_factory=lambda: str(uuid4()))
+    created_at: str = field(default_factory=utc_now)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)

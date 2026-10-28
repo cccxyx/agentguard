@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from backend.models import AuditEvent, Decision, ExecutionResult, ToolRequest
 from backend.policy_engine import PolicyEngine
-
+from backend.recovery import CircuitOpenError, RecoveryController
 
 ToolHandler = Callable[[str, Dict[str, Any]], Dict[str, Any]]
 
@@ -29,9 +28,15 @@ class ToolRegistry:
 class MCPGateway:
     """The only component allowed to call registered tools."""
 
-    def __init__(self, engine: PolicyEngine, registry: ToolRegistry) -> None:
+    def __init__(
+        self,
+        engine: PolicyEngine,
+        registry: ToolRegistry,
+        recovery: Optional[RecoveryController] = None,
+    ) -> None:
         self.engine = engine
         self.registry = registry
+        self.recovery = recovery
         self.pending: Dict[str, ToolRequest] = {}
         self.audit_events: List[AuditEvent] = []
 
@@ -75,17 +80,51 @@ class MCPGateway:
 
     def _execute(self, request: ToolRequest, decision: Decision) -> ExecutionResult:
         try:
+            if self.recovery:
+                self.recovery.before_execute(request)
             output = self.registry.execute(request)
+            if self.recovery:
+                self.recovery.on_success(request)
             self._record(request, "TOOL_EXECUTED", {"output": output})
             return ExecutionResult(request.request_id, "SUCCEEDED", decision, output)
-        except Exception as exc:  # boundary: tool failures become audit events
-            self._record(request, "TOOL_FAILED", {"error": str(exc)})
+        except CircuitOpenError as exc:
+            self._record(
+                request,
+                "CIRCUIT_REJECTED",
+                {"tool_name": request.tool_name, "error": str(exc)},
+            )
             return ExecutionResult(
                 request.request_id,
-                "FAILED",
+                "CIRCUIT_OPEN",
                 decision,
                 error=str(exc),
             )
+        except Exception as exc:  # boundary: tool failures become audit events
+            incident = self.recovery.on_failure(request, exc) if self.recovery else None
+            payload: Dict[str, Any] = {"error": str(exc)}
+            if incident:
+                payload["incident"] = incident.to_dict()
+                self._record(
+                    request,
+                    "ROLLBACK_COMPLETED" if incident.restored else "ROLLBACK_SKIPPED",
+                    incident.to_dict(),
+                )
+                if incident.circuit_opened:
+                    self._record(
+                        request,
+                        "CIRCUIT_OPENED",
+                        {"tool_name": request.tool_name},
+                    )
+            self._record(request, "TOOL_FAILED", payload)
+            return ExecutionResult(
+                request.request_id,
+                "RESTORED" if incident and incident.restored else "FAILED",
+                decision,
+                error=str(exc),
+            )
+
+    def events_for_task(self, task_id: str) -> List[AuditEvent]:
+        return [event for event in self.audit_events if event.task_id == task_id]
 
     def _record(
         self, request: ToolRequest, event_type: str, payload: Dict[str, Any]
@@ -93,4 +132,3 @@ class MCPGateway:
         self.audit_events.append(
             AuditEvent(event_type, request.request_id, request.task_id, payload)
         )
-

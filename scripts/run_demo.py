@@ -8,23 +8,12 @@ sys.path.insert(0, str(ROOT))
 
 from backend.agent_core import DemoOrchestrator
 from backend.api import serialize_events
-from backend.mcp_gateway import MCPGateway, ToolRegistry
-from backend.mock_tools import MockWorkspace, register_workspace_tools
+from backend.bootstrap import build_runtime
 from backend.models import ToolRequest, TrustLevel
-from backend.policy_engine import PolicyEngine, PolicyRepository
-
-
-def build_gateway():
-    repository = PolicyRepository.from_json(ROOT / "config" / "policies.json")
-    engine = PolicyEngine(repository)
-    registry = ToolRegistry()
-    workspace = MockWorkspace()
-    register_workspace_tools(registry, workspace)
-    return MCPGateway(engine, registry), workspace
 
 
 def main():
-    gateway, workspace = build_gateway()
+    gateway, workspace = build_runtime()
     orchestrator = DemoOrchestrator(gateway)
 
     print("\n1) 正常任务与群发确认")
@@ -55,10 +44,11 @@ def main():
     print(json.dumps(blocked.to_dict(), ensure_ascii=False, indent=2))
 
     print("\n4) Trace 事件数量: {}".format(len(gateway.audit_events)))
-    print(json.dumps(serialize_events(gateway.audit_events), ensure_ascii=False, indent=2))
+    print(
+        json.dumps(serialize_events(gateway.audit_events), ensure_ascii=False, indent=2)
+    )
     print("\n模拟通知发送数: {}".format(len(workspace.notifications)))
 
 
 if __name__ == "__main__":
     main()
-

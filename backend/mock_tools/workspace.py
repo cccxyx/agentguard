@@ -57,6 +57,8 @@ class MockWorkspace:
             return {"path": path, "content": self.files[path]}
         if action == "update":
             self.files[path] = arguments["content"]
+            if arguments.get("simulate_failure"):
+                raise RuntimeError("simulated shared-file write failure")
             return {"updated": True, "path": path}
         if action == "delete":
             self.files.pop(path, None)
@@ -68,4 +70,3 @@ def register_workspace_tools(registry: ToolRegistry, workspace: MockWorkspace) -
     registry.register("calendar", workspace.calendar_tool)
     registry.register("send_notice", workspace.notice_tool)
     registry.register("shared_file", workspace.file_tool)
-

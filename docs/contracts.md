@@ -21,6 +21,10 @@
 - `APPROVAL_RESOLVED`
 - `TOOL_EXECUTED`
 - `TOOL_FAILED`
+- `ROLLBACK_COMPLETED`
+- `ROLLBACK_SKIPPED`
+- `CIRCUIT_OPENED`
+- `CIRCUIT_REJECTED`
 
 前端与评测模块应以该事件结构开发 Mock 数据，避免后续联调时重新定义字段。
 
@@ -35,3 +39,4 @@ POST /api/evaluations/run
 GET  /api/evaluations/{id}
 ```
 
+当前已实现工具提交、审批、任务事件、事故查询和熔断状态接口；评测接口由评测模块后续接入。

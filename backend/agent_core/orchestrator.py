@@ -40,4 +40,3 @@ class DemoOrchestrator:
             ),
         ]
         return [self.gateway.submit(request) for request in requests]
-

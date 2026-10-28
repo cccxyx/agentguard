@@ -13,7 +13,6 @@ from backend.models import (
     TrustLevel,
 )
 
-
 _RISK_ORDER = {
     RiskLevel.LOW: 0,
     RiskLevel.MEDIUM: 1,
@@ -36,8 +35,7 @@ class PolicyRepository:
         candidates = [
             item
             for item in self._policies
-            if item["tool"] == tool_name
-            and item.get("agent", "*") in {"*", agent_id}
+            if item["tool"] == tool_name and item.get("agent", "*") in {"*", agent_id}
         ]
         if not candidates:
             return None
@@ -246,4 +244,3 @@ class PolicyEngine:
             reasons=reasons,
             policy_id=policy["id"] if policy else None,
         )
-
