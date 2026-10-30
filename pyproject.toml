@@ -20,6 +20,7 @@ packages = [
   "backend.agent_core",
   "backend.api",
   "backend.mcp_gateway",
+  "backend.mcp_service",
   "backend.mock_tools",
   "backend.models",
   "backend.policy_engine",

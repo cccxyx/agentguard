@@ -24,7 +24,9 @@
 - 任务护照：将工具、动作和参数授权绑定到单次任务并设置有效期；
 - 审批请求摘要绑定与自动过期，防止“批准后换参数”；
 - 正常、确认、阻断三条自动化测试；
-- 可直接运行的命令行演示。
+- 可直接运行的命令行演示；
+- AgentArts可接入的Streamable HTTP MCP Server与ARM64部署配置；
+- 已通过镜像构建、MCP初始化、工具发现和工具调用的本地端到端验证。
 
 真实 AgentArts 云端工作流和前端控制台将在后续迭代接入；多 Agent 协议、事务编排与 FastAPI 服务已提供可联调版本。
 
@@ -51,6 +53,8 @@ Swagger 页面：`http://127.0.0.1:8000/docs`
 
 完整活动事务从 `POST /api/tasks` 开始。当前使用离线的 AgentArts 兼容适配器；真实平台接入不会改变前端、策略网关或评测模块的接口。
 
+AgentArts接入与MCP镜像构建请参见[`docs/agentarts-integration.md`](docs/agentarts-integration.md)。当前MCP服务是正式协议入口，本地`MCPGateway`是其内部确定性执行组件，两者不再混用概念。
+
 ## 目录
 
 ```text
@@ -58,6 +62,7 @@ backend/
 ├── agent_core/          # AgentArts 与多 Agent 编排适配层
 ├── policy_engine/       # 权限、参数和三态决策
 ├── mcp_gateway/         # 工具注册、执行拦截与审批
+├── mcp_service/         # 对外MCP工具的安全服务门面
 ├── mock_tools/          # 活动资料、名单、通知等模拟工具
 ├── recovery/            # 快照、熔断与恢复
 ├── api/                 # 公共接口协议和后续 FastAPI 服务
@@ -67,6 +72,7 @@ docs/                    # 架构、接口和协作约定
 evaluation/              # 评测团队工作区
 frontend/                # 前端团队工作区
 tests/                   # 核心自动化测试
+deploy/mcp_server/       # AgentArts MCP Server与ARM64镜像
 ```
 
 ## 开发分支

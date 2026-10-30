@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+.env
+.agentarts_config.yaml
+.ruff_cache
+*.egg-info
+tests
+frontend
+evaluation
