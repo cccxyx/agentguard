@@ -12,7 +12,11 @@ from backend.models import (
     ToolRequest,
     TrustLevel,
 )
-from backend.policy_engine.passport import PassportRegistry, validate_passport
+from backend.policy_engine.passport import (
+    PassportRegistry,
+    request_fingerprint,
+    validate_passport,
+)
 
 _RISK_ORDER = {
     RiskLevel.LOW: 0,
@@ -118,6 +122,22 @@ class PolicyEngine:
         blockers = self._blocking_checks(request, policy)
         if blockers:
             return self._decision(request, Decision.BLOCK, policy, blockers)
+
+        if request.passport_id and not self.passports.consume(
+            request.passport_id, request_fingerprint(request)
+        ):
+            return self._decision(
+                request,
+                Decision.BLOCK,
+                policy,
+                self._evidence(
+                    "TASK_PASSPORT_REPLAY",
+                    "该任务授权已经使用，禁止重复执行。",
+                    RiskLevel.CRITICAL,
+                    "passport_id",
+                    request.passport_id,
+                ),
+            )
 
         confirmations = self._confirmation_checks(request, policy)
         if confirmations:

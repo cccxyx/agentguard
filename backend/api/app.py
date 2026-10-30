@@ -12,16 +12,7 @@ from backend.agent_core import (
 )
 from backend.bootstrap import build_runtime
 from backend.mcp_gateway import MCPGateway
-from backend.models import ToolRequest, TrustLevel
-
-
-class ToolRequestBody(BaseModel):
-    task_id: str = Field(min_length=1)
-    agent_id: str = Field(min_length=1)
-    tool_name: str = Field(min_length=1)
-    action: str = Field(min_length=1)
-    arguments: Dict[str, Any] = Field(default_factory=dict)
-    source_trust: TrustLevel
+from backend.models import TrustLevel
 
 
 class ApprovalBody(BaseModel):
@@ -57,18 +48,6 @@ def create_app(
     @app.get("/health")
     def health() -> Dict[str, str]:
         return {"status": "ok", "service": "agentguard"}
-
-    @app.post("/api/tool-requests")
-    def submit_tool_request(body: ToolRequestBody) -> Dict[str, Any]:
-        request = ToolRequest(
-            task_id=body.task_id,
-            agent_id=body.agent_id,
-            tool_name=body.tool_name,
-            action=body.action,
-            arguments=body.arguments,
-            source_trust=body.source_trust,
-        )
-        return runtime_gateway.submit(request).to_dict()
 
     @app.post("/api/tasks")
     def create_task(body: ActivityTaskBody) -> Dict[str, Any]:

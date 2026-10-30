@@ -4,7 +4,8 @@ import hashlib
 import json
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from threading import Lock
+from typing import Dict, Optional, Set
 
 from backend.models import PassportGrant, TaskPassport, ToolRequest
 
@@ -40,12 +41,29 @@ def approval_fingerprint(request: ToolRequest) -> str:
 class PassportRegistry:
     def __init__(self) -> None:
         self._items: Dict[str, TaskPassport] = {}
+        self._consumed: Dict[str, Set[str]] = {}
+        self._lock = Lock()
 
     def add(self, passport: TaskPassport) -> None:
-        self._items[passport.passport_id] = passport
+        with self._lock:
+            self._items[passport.passport_id] = passport
+            self._consumed[passport.passport_id] = set()
 
     def get(self, passport_id: str) -> Optional[TaskPassport]:
         return self._items.get(passport_id)
+
+    def is_consumed(self, passport_id: str, fingerprint: str) -> bool:
+        return fingerprint in self._consumed.get(passport_id, set())
+
+    def consume(self, passport_id: str, fingerprint: str) -> bool:
+        """Atomically consume a grant so an exact tool call cannot be replayed."""
+
+        with self._lock:
+            consumed = self._consumed.get(passport_id)
+            if consumed is None or fingerprint in consumed:
+                return False
+            consumed.add(fingerprint)
+            return True
 
 
 class PassportIssuer:
@@ -109,4 +127,6 @@ def validate_passport(
     fingerprint = request_fingerprint(request)
     if fingerprint not in {grant.request_fingerprint for grant in passport.grants}:
         return "工具请求超出了任务护照授权范围。"
+    if registry.is_consumed(request.passport_id, fingerprint):
+        return "任务护照中的该项授权已经使用，禁止重复执行。"
     return None

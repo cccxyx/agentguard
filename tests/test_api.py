@@ -21,27 +21,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ok")
 
-    def test_submit_and_read_trace(self):
-        response = self.client.post(
-            "/api/tool-requests",
-            json={
-                "task_id": "api-task-1",
-                "agent_id": "activity-assistant",
-                "tool_name": "calendar",
-                "action": "create",
-                "arguments": {
-                    "title": "活动",
-                    "starts_at": "2026-11-01T09:00:00",
-                },
-                "source_trust": "USER_CONFIRMED",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "SUCCEEDED")
-
-        events = self.client.get("/api/tasks/api-task-1/events")
-        self.assertEqual(events.status_code, 200)
-        self.assertEqual(len(events.json()), 2)
+    def test_raw_tool_execution_is_not_exposed(self):
+        response = self.client.post("/api/tool-requests", json={})
+        self.assertEqual(response.status_code, 404)
 
     def test_create_and_resume_activity_task(self):
         created = self.client.post(
@@ -64,6 +46,10 @@ class ApiTests(unittest.TestCase):
         )
         self.assertEqual(completed.status_code, 200)
         self.assertEqual(completed.json()["status"], "SUCCEEDED")
+
+        events = self.client.get("/api/tasks/{}/events".format(task_id))
+        self.assertEqual(events.status_code, 200)
+        self.assertGreaterEqual(len(events.json()), 6)
 
 
 if __name__ == "__main__":

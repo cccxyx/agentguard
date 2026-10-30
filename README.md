@@ -35,10 +35,11 @@
 项目核心原型仅使用 Python 标准库，Python 3.9+ 可直接运行：
 
 ```bash
-python3 scripts/run_demo.py
 python3 scripts/run_task_demo.py
 python3 -m unittest discover -s tests -v
 ```
+
+`run_task_demo.py`是比赛主链路演示；`run_demo.py`仅用于单独观察底层策略规则，不作为产品入口。
 
 安装 API 依赖后可以启动服务：
 

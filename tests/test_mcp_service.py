@@ -63,6 +63,25 @@ class MCPServiceTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "BLOCKED")
 
+    def test_passport_grant_cannot_be_replayed(self):
+        task = self._create_task()
+        passport_id = task["plan_summary"]["task_passport"]["passport_id"]
+        result = self.service.submit_guarded_tool_request(
+            task_id=task["task_id"],
+            agent_id="activity-assistant",
+            tool_name="calendar",
+            action="create",
+            arguments={
+                "title": "社区公益活动",
+                "starts_at": "2026-11-01T09:00:00+08:00",
+                "location": "社区服务中心",
+            },
+            source_trust="USER_CONFIRMED",
+            passport_id=passport_id,
+        )
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("已经使用", result["error"])
+
     def test_runtime_status_describes_real_mcp_transport(self):
         status = self.service.runtime_status()
         self.assertEqual(status["transport"], "streamable-http")

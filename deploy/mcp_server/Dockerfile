@@ -2,17 +2,19 @@ FROM dockerproxy.net/library/python:3.11-slim
 
 WORKDIR /app
 
+ENV PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
+ENV PIP_TRUSTED_HOST=repo.huaweicloud.com
+
+COPY deploy/mcp_server/requirements.txt /tmp/mcp-requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/mcp-requirements.txt
+
 COPY pyproject.toml README.md ./
 COPY backend ./backend
 COPY config ./config
 COPY deploy ./deploy
 
-ENV PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
-ENV PIP_TRUSTED_HOST=repo.huaweicloud.com
-
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir . \
-    && pip install --no-cache-dir -r deploy/mcp_server/requirements.txt
+RUN pip install --no-cache-dir --no-deps .
 
 EXPOSE 8080
 
