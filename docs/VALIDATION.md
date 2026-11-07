@@ -12,7 +12,9 @@
 
 ## 运行时边界
 
-- FastAPI 依赖在当前受限环境中安装失败，因此没有在本轮完成 `uvicorn` 实际启动抓包；接口由 13 项服务测试和 `compileall` 覆盖。
+- `uvicorn` 已在本机完成实际启动验证，监听 `127.0.0.1:8000`。
+- 实际调用验证：`/api/health` 返回 ok，`/api/me` 返回 `example.operator`；normal 任务完成，block 任务阻断，approval 批准后完成，recovery 批准后触发熔断并恢复。
+- 恢复运行时检查产生 1 条 `RECOVERED` Incident；四个任务最终状态分别为 `COMPLETED`、`BLOCKED`、`COMPLETED`、`RECOVERED`。
 - 前端生产构建和 Vitest 在当前执行环境的 Node 子进程权限下不可重复运行；此前前端验证记录显示本机构建和静态服务检查通过。
 - API 状态在内存中保存，进程重启后清空；没有持久化数据库。
 - 工具执行只修改 `MockWorkspace` 内存对象，不发送真实邮件或修改真实文件。
